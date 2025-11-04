@@ -4,10 +4,12 @@ import enum
 import sys
 
 from collections.abc import Collection
-from typing import Any, Generic, Optional, Union
-
+# from typing import Any, Generic, Optional, Union
+from typing import Any, Generic, Optional, Union, Dict, Tuple, List
 
 if sys.version_info >= (3, 13):
+    from typing import TypeVar
+elif sys.version_info < (3, 9):
     from typing import TypeVar
 else:
     from typing_extensions import TypeVar
@@ -28,9 +30,10 @@ class _DataMeta(type):
     _single and _range will then be populated with
 
         MY_DATA_VALUE = 0x01
-        _single[0x01] = ('Data description', None)
+        _single: Dict[int, Tuple[str, Optional[SubdataType]]] = {0x01: ('Data description', None)}
+        
         MY_DATA_RANGE = range(0x02, 0x06+1)
-        _range.append(tuple(0x02, 0x06, ('Data range description', None)))
+        _range: List[Tuple[int, int, Tuple[str, Optional[SubdataType]]]] = [(0x02, 0x06, ('Data range description', None))]
 
     As you can see, for single data insertions, the variable will be kept with
     the first value of the tuple. Both single and range data insertions will
@@ -44,13 +47,15 @@ class _DataMeta(type):
     Which will result in
 
         MY_DATA_VALUE = 0x01
-        _single[0x01] = ('Data description', OTHER_DATA_TYPE)
-        _range.append(tuple(0x02, 0x06, ('Data range description', YET_OTHER_DATA_TYPE)))
+        _single: Dict[int, Tuple[str, Optional[SubdataType]]] = {0x01: ('Data description', OTHER_DATA_TYPE)}
+        
+        _range: List[Tuple[int, int, Tuple[str, Optional[SubdataType]]]] = [(0x02, 0x06, ('Data range description', YET_OTHER_DATA_TYPE))]
 
     This metaclass also does some verification to prevent duplicated data.
     """
 
-    def __new__(cls, name: str, bases: tuple[Any], obj_dict: dict[str, Any]):  # type: ignore[no-untyped-def]  # noqa: C901
+    # def __new__(cls, name: str, bases: tuple[Any], obj_dict: dict[str, Any]):  # type: ignore[no-untyped-def]  # noqa: C901
+    def __new__(cls, name: str, bases: Tuple[Any, ...], obj_dict: Dict[str, Any]):
         obj_dict['_single'] = {}
         obj_dict['_range'] = []
 
@@ -117,7 +122,8 @@ class _DataMeta(type):
         return super().__new__(cls, name, bases, obj_dict)
 
 
-_SubdataType = TypeVar('_SubdataType', default=None)
+# _SubdataType = TypeVar('_SubdataType', default=None)
+_SubdataType = TypeVar('_SubdataType')
 
 
 class _Data(Generic[_SubdataType], metaclass=_DataMeta):
@@ -126,12 +132,16 @@ class _Data(Generic[_SubdataType], metaclass=_DataMeta):
     See the _DataMeta documentation for more information.
     """
 
-    _single: dict[int, tuple[str, _SubdataType]]
-    _range: list[tuple[int, int, tuple[str, _SubdataType]]]
-    data: dict[str, tuple[int, str, _SubdataType]]
+    # _single: dict[int, tuple[str, _SubdataType]]
+    # _range: list[tuple[int, int, tuple[str, _SubdataType]]]
+    # data: dict[str, tuple[int, str, _SubdataType]]
+    _single: Dict[int, Tuple[str, Optional[_SubdataType]]]
+    _range: List[Tuple[int, int, Tuple[str, Optional[_SubdataType]]]]
+    data: Dict[str, Tuple[int, str, Optional[_SubdataType]]]
 
     @classmethod
-    def _get_data(cls, num: Optional[int]) -> tuple[str, _SubdataType]:
+    # def _get_data(cls, num: Optional[int]) -> tuple[str, _SubdataType]:
+    def _get_data(cls, num: Optional[int]) -> Tuple[str, Optional[_SubdataType]]:
         if num is None:
             msg = 'Data index is not an int'
             raise KeyError(msg)
@@ -221,7 +231,8 @@ class Collections(_Data):
     VENDOR = 0x80, ..., 0xFF, 'Vendor'
 
 
-class UsagePage(_Data[Union[UsageTypes, Collection[UsageTypes]]]):
+# class UsagePage(_Data[Union[UsageTypes, Collection[UsageTypes]]]):
+class UsagePage(_Data[Union[UsageTypes, Tuple[UsageTypes, ...]]]):
     pass
 
 

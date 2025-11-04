@@ -9,12 +9,13 @@ import typing
 import warnings
 
 from collections.abc import Collection, Iterable, Iterator, Sequence
-from typing import Any, Literal, Optional, TextIO
+# from typing import Any, Literal, Optional, TextIO
+from typing import Any, Literal, Optional, TextIO, Dict, List, Tuple, Union
 
 import hid_parser.data
 
 
-__version__ = '0.1.0'
+__version__ = '0.0.9'
 
 
 class HIDWarning(Warning):
@@ -188,11 +189,16 @@ class BitNumber(int):
 
 class Usage:
     def __init__(
+        # self,
+        # page: int | None = None,
+        # usage: int | None = None,
+        # *,
+        # extended_usage: int | None = None,
         self,
-        page: int | None = None,
-        usage: int | None = None,
+        page: Optional[int] = None,
+        usage: Optional[int] = None,
         *,
-        extended_usage: int | None = None,
+        extended_usage: Optional[int] = None,
     ) -> None:
         if extended_usage and page and usage:
             msg = 'You need to specify either the usage page and usage or the extended usage'
@@ -233,11 +239,13 @@ class Usage:
         return f'Usage(page={page_str}, usage={usage_str})'
 
     @property
-    def usage_types(self) -> Collection[hid_parser.data.UsageTypes]:
+    # def usage_types(self) -> Collection[hid_parser.data.UsageTypes]:
+    def usage_types(self) -> Tuple[hid_parser.data.UsageTypes, ...]:
         usage_page = hid_parser.data.UsagePages.get_subdata(self.page)
         usage_types = usage_page.get_subdata(self.usage)
 
-        if not isinstance(usage_types, Collection):
+        # if not isinstance(usage_types, Collection):
+        if not isinstance(usage_types, tuple):
             usage_types = (usage_types,)
 
         return usage_types
@@ -255,7 +263,8 @@ class UsageValue:
         return repr(self.value)
 
     @property
-    def value(self) -> int | bool:
+    # def value(self) -> int | bool:
+    def value(self) -> Union[int, bool]:
         return self._value
 
     @property
@@ -277,11 +286,16 @@ class UsageValue:
 
 class VendorUsageValue(UsageValue):
     def __init__(
+    #     self,
+    #     item: MainItem,
+    #     *,
+    #     value: int | None = None,
+    #     value_list: list[int] | None = None,
         self,
-        item: MainItem,
+        item: 'MainItem',
         *,
-        value: int | None = None,
-        value_list: list[int] | None = None,
+        value: Optional[int] = None,
+        value_list: Optional[List[int]] = None,
     ):
         self._item = item
         if value:
@@ -298,11 +312,13 @@ class VendorUsageValue(UsageValue):
         return iter(self.list)
 
     @property
-    def value(self) -> int | bool:
+    # def value(self) -> int | bool:
+    def value(self) -> Union[int, bool]:
         return int.from_bytes(self._list, byteorder='little')
 
     @property
-    def list(self) -> list[int]:
+    # def list(self) -> list[int]:
+    def list(self) -> List[int]:
         return self._list
 
 
@@ -335,8 +351,10 @@ class MainItem(BaseItem):
         flags: int,
         logical_min: int,
         logical_max: int,
-        physical_min: int | None = None,
-        physical_max: int | None = None,
+        # physical_min: int | None = None,
+        # physical_max: int | None = None,
+        physical_min: Optional[int] = None,
+        physical_max: Optional[int] = None,
     ):
         super().__init__(offset, size)
         self._flags = flags
@@ -363,11 +381,13 @@ class MainItem(BaseItem):
         return self._logical_max
 
     @property
-    def physical_min(self) -> int | None:
+    # def physical_min(self) -> int | None:
+    def physical_min(self) -> Optional[int]:
         return self._physical_min
 
     @property
-    def physical_max(self) -> int | None:
+    # def physical_max(self) -> int | None:
+    def physical_max(self) -> Optional[int]:
         return self._physical_max
 
     # flags
@@ -410,8 +430,10 @@ class VariableItem(MainItem):
         usage: Usage,
         logical_min: int,
         logical_max: int,
-        physical_min: int | None = None,
-        physical_max: int | None = None,
+        # physical_min: int | None = None,
+        # physical_max: int | None = None,
+        physical_min: Optional[int] = None,
+        physical_max: Optional[int] = None,
     ):
         super().__init__(offset, size, flags, logical_min, logical_max, physical_min, physical_max)
         self._usage = usage
@@ -511,11 +533,16 @@ class ArrayItem(MainItem):
         size: int,
         count: int,
         flags: int,
-        usages: list[Usage],
+        # usages: list[Usage],
+        # logical_min: int,
+        # logical_max: int,
+        # physical_min: int | None = None,
+        # physical_max: int | None = None,
+        usages: List[Usage],
         logical_min: int,
         logical_max: int,
-        physical_min: int | None = None,
-        physical_max: int | None = None,
+        physical_min: Optional[int] = None,
+        physical_max: Optional[int] = None,
     ):
         super().__init__(offset, size, flags, logical_min, logical_max, physical_min, physical_max)
         self._count = count
@@ -534,7 +561,8 @@ class ArrayItem(MainItem):
             except (KeyError, ValueError):
                 pass
 
-        self._ignore_usages: list[Usage] = []
+        # self._ignore_usages: list[Usage] = []
+        self._ignore_usages: List[Usage] = []
         for page, usage_id in self._IGNORE_USAGE_VALUES:
             assert isinstance(page, int) and isinstance(usage_id, int)
             self._ignore_usages.append(Usage(page, usage_id))
@@ -558,8 +586,11 @@ class ArrayItem(MainItem):
             )
         )
 
-    def parse(self, data: Sequence[int]) -> dict[Usage, UsageValue]:
-        usage_values: dict[Usage, UsageValue] = {}
+    # def parse(self, data: Sequence[int]) -> dict[Usage, UsageValue]:
+    #     usage_values: dict[Usage, UsageValue] = {}
+
+    def parse(self, data: Sequence[int]) -> Dict[Usage, UsageValue]:
+        usage_values: Dict[Usage, UsageValue] = {}
 
         for i in range(self.count):
             aligned_data = _data_bit_shift(data, self.offset + i * 8, self.size)
@@ -592,7 +623,8 @@ class ArrayItem(MainItem):
         return self._count
 
     @property
-    def usages(self) -> list[Usage]:
+    # def usages(self) -> list[Usage]:
+    def usages(self) -> List[Usage]:
         return self._usages
 
 
@@ -601,7 +633,8 @@ class InvalidReportDescriptor(Exception):
 
 
 # report ID (None for no report ID), item list
-_ITEM_POOL = dict[Optional[int], list[BaseItem]]
+# _ITEM_POOL = dict[Optional[int], list[BaseItem]]
+_ITEM_POOL = Dict[Optional[int], List[BaseItem]]
 
 
 class ReportDescriptor:
@@ -624,18 +657,22 @@ class ReportDescriptor:
         return self._data
 
     @property
-    def input_report_ids(self) -> list[int | None]:
+    # def input_report_ids(self) -> list[int | None]:
+    def input_report_ids(self) -> List[Optional[int]]:
         return list(self._input.keys())
 
     @property
-    def output_report_ids(self) -> list[int | None]:
+    # def output_report_ids(self) -> list[int | None]:
+    def output_report_ids(self) -> List[Optional[int]]:
         return list(self._output.keys())
 
     @property
-    def feature_report_ids(self) -> list[int | None]:
+    # def feature_report_ids(self) -> list[int | None]:
+    def feature_report_ids(self) -> List[Optional[int]]:
         return list(self._feature.keys())
 
-    def _get_report_size(self, items: list[BaseItem]) -> BitNumber:
+    # def _get_report_size(self, items: list[BaseItem]) -> BitNumber:
+    def _get_report_size(self, items: List[BaseItem]) -> BitNumber:
         size = 0
         for item in items:
             if isinstance(item, ArrayItem):
@@ -644,26 +681,34 @@ class ReportDescriptor:
                 size += item.size
         return BitNumber(size)
 
-    def get_input_items(self, report_id: int | None = None) -> list[BaseItem]:
+    # def get_input_items(self, report_id: int | None = None) -> list[BaseItem]:
+    def get_input_items(self, report_id: Optional[int] = None) -> List[BaseItem]:
         return self._input[report_id]
 
-    def get_input_report_size(self, report_id: int | None = None) -> BitNumber:
+    # def get_input_report_size(self, report_id: int | None = None) -> BitNumber:
+    def get_input_report_size(self, report_id: Optional[int] = None) -> BitNumber:
         return self._get_report_size(self.get_input_items(report_id))
 
-    def get_output_items(self, report_id: int | None = None) -> list[BaseItem]:
+    # def get_output_items(self, report_id: int | None = None) -> list[BaseItem]:
+    def get_output_items(self, report_id: Optional[int] = None) -> List[BaseItem]:
         return self._output[report_id]
 
-    def get_output_report_size(self, report_id: int | None = None) -> BitNumber:
+    # def get_output_report_size(self, report_id: int | None = None) -> BitNumber:
+    def get_output_report_size(self, report_id: Optional[int] = None) -> BitNumber:
         return self._get_report_size(self.get_output_items(report_id))
 
-    def get_feature_items(self, report_id: int | None = None) -> list[BaseItem]:
+    # def get_feature_items(self, report_id: int | None = None) -> list[BaseItem]:
+    def get_feature_items(self, report_id: Optional[int] = None) -> List[BaseItem]:
         return self._feature[report_id]
 
-    def get_feature_report_size(self, report_id: int | None = None) -> BitNumber:
+    # def get_feature_report_size(self, report_id: int | None = None) -> BitNumber:
+    def get_feature_report_size(self, report_id: Optional[int] = None) -> BitNumber:
         return self._get_report_size(self.get_feature_items(report_id))
 
-    def _parse_report_items(self, items: list[BaseItem], data: Sequence[int]) -> dict[Usage, UsageValue]:
-        parsed: dict[Usage, UsageValue] = {}
+    # def _parse_report_items(self, items: list[BaseItem], data: Sequence[int]) -> dict[Usage, UsageValue]:
+    #     parsed: dict[Usage, UsageValue] = {}
+    def _parse_report_items(self, items: List[BaseItem], data: Sequence[int]) -> Dict[Usage, UsageValue]:
+        parsed: Dict[Usage, UsageValue] = {}
         for item in items:
             if isinstance(item, VariableItem):
                 parsed[item.usage] = item.parse(data)
@@ -680,22 +725,27 @@ class ReportDescriptor:
                 raise TypeError(msg)
         return parsed
 
-    def _parse_report(self, item_poll: _ITEM_POOL, data: Sequence[int]) -> dict[Usage, UsageValue]:
+    # def _parse_report(self, item_poll: _ITEM_POOL, data: Sequence[int]) -> dict[Usage, UsageValue]:
+    def _parse_report(self, item_poll: _ITEM_POOL, data: Sequence[int]) -> Dict[Usage, UsageValue]:
         if None in item_poll:  # unnumbered reports
             return self._parse_report_items(item_poll[None], data)
         else:  # numbered reports
             return self._parse_report_items(item_poll[data[0]], data[1:])
 
-    def parse_input_report(self, data: Sequence[int]) -> dict[Usage, UsageValue]:
+    # def parse_input_report(self, data: Sequence[int]) -> dict[Usage, UsageValue]:
+    def parse_input_report(self, data: Sequence[int]) -> Dict[Usage, UsageValue]:
         return self._parse_report(self._input, data)
 
-    def parse_output_report(self, data: Sequence[int]) -> dict[Usage, UsageValue]:
+    # def parse_output_report(self, data: Sequence[int]) -> dict[Usage, UsageValue]:
+    def parse_output_report(self, data: Sequence[int]) -> Dict[Usage, UsageValue]:
         return self._parse_report(self._output, data)
 
-    def parse_feature_report(self, data: Sequence[int]) -> dict[Usage, UsageValue]:
+    # def parse_feature_report(self, data: Sequence[int]) -> dict[Usage, UsageValue]:
+    def parse_feature_report(self, data: Sequence[int]) -> Dict[Usage, UsageValue]:
         return self._parse_report(self._feature, data)
 
-    def _iterate_raw(self) -> Iterable[tuple[int, int, int | None]]:
+    # def _iterate_raw(self) -> Iterable[tuple[int, int, int | None]]:
+    def _iterate_raw(self) -> Iterable[Tuple[int, int, Optional[int]]]:
         i = 0
         while i < len(self.data):
             prefix = self.data[i]
@@ -733,10 +783,15 @@ class ReportDescriptor:
             i += size
 
     def _append_item(
+        # self,
+        # offset_list: dict[int | None, int],
+        # pool: _ITEM_POOL,
+        # report_id: int | None,
+        # item: BaseItem,
         self,
-        offset_list: dict[int | None, int],
+        offset_list: Dict[Optional[int], int],
         pool: _ITEM_POOL,
-        report_id: int | None,
+        report_id: Optional[int],
         item: BaseItem,
     ) -> None:
         offset_list[report_id] += item.size
@@ -746,15 +801,24 @@ class ReportDescriptor:
             pool[report_id] = [item]
 
     def _append_items(
+        # self,
+        # offset_list: dict[int | None, int],
+        # pool: _ITEM_POOL,
+        # report_id: int | None,
+        # report_count: int,
+        # report_size: int,
+        # usages: list[Usage],
+        # flags: int,
+        # data: dict[str, Any],
         self,
-        offset_list: dict[int | None, int],
+        offset_list: Dict[Optional[int], int],
         pool: _ITEM_POOL,
-        report_id: int | None,
+        report_id: Optional[int],
         report_count: int,
         report_size: int,
-        usages: list[Usage],
+        usages: List[Usage],
         flags: int,
-        data: dict[str, Any],
+        data: Dict[str, Any],
     ) -> None:
         item: BaseItem
         is_array = flags & (1 << 1) == 0  # otherwise variable
@@ -802,23 +866,34 @@ class ReportDescriptor:
                 self._append_item(offset_list, pool, report_id, item)
 
     def _parse(self, level: int = 0, file: TextIO = sys.stdout) -> None:  # noqa: C901
-        offset_input: dict[int | None, int] = {
+        # offset_input: dict[int | None, int] = {
+        offset_input: Dict[Optional[int], int] = {
             None: 0,
         }
-        offset_output: dict[int | None, int] = {
+        # offset_output: dict[int | None, int] = {
+        offset_output: Dict[Optional[int], int] = {
             None: 0,
         }
-        offset_feature: dict[int | None, int] = {
+        # offset_feature: dict[int | None, int] = {
+        offset_feature: Dict[Optional[int], int] = {
             None: 0,
         }
-        report_id: int | None = None
-        report_count: int | None = None
-        report_size: int | None = None
-        usage_page: int | None = None
-        usages: list[Usage] = []
-        usage_min: int | None = None
-        glob: dict[str, Any] = {}
-        local: dict[str, Any] = {}
+        # report_id: int | None = None
+        # report_count: int | None = None
+        # report_size: int | None = None
+        # usage_page: int | None = None
+        # usages: list[Usage] = []
+        # usage_min: int | None = None
+        # glob: dict[str, Any] = {}
+        # local: dict[str, Any] = {}
+        report_id: Optional[int] = None
+        report_count: Optional[int] = None
+        report_size: Optional[int] = None
+        usage_page: Optional[int] = None
+        usages: List[Usage] = []
+        usage_min: Optional[int] = None
+        glob: Dict[str, Any] = {}
+        local: Dict[str, Any] = {}
 
         for typ, tag, data in self._iterate_raw():
             if typ == Type.MAIN:
@@ -984,7 +1059,8 @@ class ReportDescriptor:
         def printl(string: str) -> None:
             print(' ' * level + string, file=file)
 
-        usage_page: Literal[False] | hid_parser.data.UsagePage | None = False
+        # usage_page: Literal[False] | hid_parser.data.UsagePage | None = False
+        usage_page: Union[Literal[False], hid_parser.data.UsagePage, None] = False
 
         for typ, tag, data in self._iterate_raw():
             if typ == Type.MAIN:
